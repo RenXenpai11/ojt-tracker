@@ -1,13 +1,17 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Mail, Lock, School, Eye, EyeOff, GraduationCap } from "lucide-react";
+import { User, Mail, Lock, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { SearchableSelect } from "../components/SearchableSelect";
+import { SCHOOLS } from "../data/schools";
+import { COURSES } from "../data/courses";
 
 export function Register() {
   const { register } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState("");
   const [school, setSchool] = useState("");
+  const [course, setCourse] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -26,7 +30,7 @@ export function Register() {
     }
 
     setLoading(true);
-    const result = register(name, email, password, school);
+    const result = register(name, email, password, school, course);
     
     if (!result.ok) {
       setError(result.error || "Unable to create account.");
@@ -76,7 +80,6 @@ export function Register() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
-                placeholder="John Doe"
                 className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
               />
             </div>
@@ -94,28 +97,31 @@ export function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="you@example.com"
                 className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
               />
             </div>
           </div>
 
-          {/* School Field */}
+          {/* School Field with Searchable Dropdown */}
           <div className="mb-5.5">
-            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
-              School
-            </label>
-            <div className="relative group">
-              <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
-              <input
-                type="text"
-                value={school}
-                onChange={(e) => setSchool(e.target.value)}
-                required
-                placeholder="e.g. University of Mindanao"
-                className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
-              />
-            </div>
+            <SearchableSelect
+              options={SCHOOLS}
+              value={school}
+              onChange={setSchool}
+              placeholder="Search schools..."
+              label="School"
+            />
+          </div>
+
+          {/* Course Field with Searchable Dropdown */}
+          <div className="mb-5.5">
+            <SearchableSelect
+              options={COURSES}
+              value={course}
+              onChange={setCourse}
+              placeholder="Search courses..."
+              label="Course"
+            />
           </div>
 
           {/* Password Field */}

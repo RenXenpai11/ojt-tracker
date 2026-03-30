@@ -14,6 +14,8 @@ import {
 import { useRef, useState } from "react";
 import { useOJT } from "../context/OJTContext";
 import { useAuth } from "../context/AuthContext";
+import { SearchableSelect } from "../components/SearchableSelect";
+import { getDepartmentOptionsByCourse } from "../data/departments";
 
 const AVATAR_URL =
   "https://images.unsplash.com/photo-1765648636207-22c892e8fae9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjB5b3VuZyUyMHdvbWFuJTIwc3R1ZGVudCUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MzgwNTI5NXww&ixlib=rb-4.1.0&q=80&w=1080";
@@ -51,6 +53,7 @@ export function Profile() {
   const [editDepartment, setEditDepartment] = useState(profile?.department ?? "");
   const [editStartDate, setEditStartDate] = useState(profile?.startDate ?? "");
   const [editTargetEndDate, setEditTargetEndDate] = useState(profile?.targetEndDate ?? "");
+  const editDepartmentOptions = getDepartmentOptionsByCourse(editCourse);
 
   function buildProfile(overrides?: Partial<typeof profile>): NonNullable<typeof profile> {
     return {
@@ -193,12 +196,12 @@ export function Profile() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Department</label>
-              <input
-                type="text"
+              <SearchableSelect
+                options={editDepartmentOptions}
                 value={editDepartment}
-                onChange={(e) => setEditDepartment(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2.5 text-sm text-gray-900 dark:text-gray-100"
+                onChange={setEditDepartment}
+                placeholder="Search department..."
+                label="Department"
               />
             </div>
 

@@ -6,6 +6,7 @@ type User = {
   name: string;
   email: string;
   school: string;
+  course?: string;
 };
 
 type StoredUser = User & {
@@ -35,7 +36,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isSetupComplete: boolean;
   login: (email: string, password: string) => AuthResult;
-  register: (name: string, email: string, password: string, school: string) => AuthResult;
+  register: (name: string, email: string, password: string, school: string, course: string) => AuthResult;
   logout: () => void;
   saveProfile: (profile: OJTProfile) => void;
 }
@@ -67,7 +68,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return safeParse<OJTProfile | null>(localStorage.getItem(profileKey(current.id)), null);
   });
 
-  const isSetupComplete = !!profile && profile.requiredHours > 0;
+  const persistedProfile = user
+    ? safeParse<OJTProfile | null>(localStorage.getItem(profileKey(user.id)), null)
+    : null;
+  const effectiveProfile = profile ?? persistedProfile;
+  const isSetupComplete = !!effectiveProfile && effectiveProfile.requiredHours > 0;
 
   function login(email: string, password: string): AuthResult {
     const users = safeParse<StoredUser[]>(localStorage.getItem(USERS_KEY), []);
@@ -84,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: found.name,
       email: found.email,
       school: found.school || "Not set",
+      course: found.course || "",
     };
     setUser(nextUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
@@ -91,12 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }
 
-  function register(name: string, email: string, password: string, school: string): AuthResult {
+  function register(name: string, email: string, password: string, school: string, course: string): AuthResult {
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedSchool = school.trim();
+    const trimmedCourse = course.trim();
 
-    if (!trimmedName || !trimmedEmail || !password || !trimmedSchool) {
+    if (!trimmedName || !trimmedEmail || !password || !trimmedSchool || !trimmedCourse) {
       return { ok: false, error: "Please complete all required fields." };
     }
 
@@ -111,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: trimmedName,
       email: trimmedEmail,
       school: trimmedSchool,
+      course: trimmedCourse,
       password,
     };
 
@@ -122,11 +130,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: stored.name,
       email: stored.email,
       school: stored.school,
+      course: stored.course,
     };
     setUser(nextUser);
     localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
     localStorage.setItem(logsKey(nextUser.id), JSON.stringify([]));
-    setProfileState(null);
+    const initialProfile: OJTProfile = {
+      requiredHours: 0,
+      startDate: "",
+      targetEndDate: "",
+      company: "",
+      phone: "",
+      location: "",
+      course: trimmedCourse,
+      department: "",
+    };
+    localStorage.setItem(profileKey(nextUser.id), JSON.stringify(initialProfile));
+    setProfileState(initialProfile);
     return { ok: true };
   }
 
@@ -138,13 +158,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   function saveProfile(next: OJTProfile) {
     if (!user) return;
-    setProfileState(next);
     localStorage.setItem(profileKey(user.id), JSON.stringify(next));
+    setProfileState(next);
   }
 
   const value: AuthContextType = {
     user,
-    profile,
+    profile: effectiveProfile,
     isAuthenticated: !!user,
     isSetupComplete,
     login,
