@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { User, Mail, Lock, School, Eye, EyeOff, GraduationCap } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 export function Register() {
@@ -10,18 +11,26 @@ export function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
+    setLoading(true);
     const result = register(name, email, password, school);
+    
     if (!result.ok) {
       setError(result.error || "Unable to create account.");
+      setLoading(false);
       return;
     }
 
@@ -29,86 +38,191 @@ export function Register() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex items-center justify-center px-4">
+    <div className="min-h-screen flex items-center justify-center bg-white px-4 py-8">
+
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-lg p-7"
+        className="w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-500"
       >
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Create Account</h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Set up your OJT student account.</p>
-
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Full Name</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">School</label>
-            <input
-              type="text"
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-              required
-              placeholder="e.g. University of Mindanao"
-              className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="mt-1 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-900 dark:text-slate-100"
-            />
+        {/* Logo/Icon Container */}
+        <div className="flex justify-center mb-8">
+          <div className="w-16 h-16 rounded-3xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-orange-400/20">
+            <GraduationCap className="w-8 h-8 text-white" />
           </div>
         </div>
 
-        {error && <p className="mt-4 text-sm text-red-500">{error}</p>}
+        {/* Card Container */}
+        <div className="backdrop-blur-md bg-yellow-50/90 border border-amber-100/50 rounded-3xl p-8 shadow-[0_10px_40px_rgba(0,0,0,0.06)]">
+          
+          {/* Header */}
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">
+              Create Account
+            </h1>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Start your OJT tracking journey today
+            </p>
+          </div>
 
-        <button
-          type="submit"
-          className="mt-6 w-full rounded-xl bg-blue-600 hover:bg-blue-700 text-white py-2.5 font-semibold transition"
-        >
-          Create Account
-        </button>
+          {/* Full Name Field */}
+          <div className="mb-5.5">
+            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
+              Full Name
+            </label>
+            <div className="relative group">
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="John Doe"
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
+              />
+            </div>
+          </div>
 
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400 text-center">
-          Already have an account?{" "}
-          <Link to="/login" className="text-blue-600 dark:text-blue-400 font-semibold">
-            Login
+          {/* Email Field */}
+          <div className="mb-5.5">
+            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
+              Email Address
+            </label>
+            <div className="relative group">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                placeholder="you@example.com"
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
+              />
+            </div>
+          </div>
+
+          {/* School Field */}
+          <div className="mb-5.5">
+            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
+              School
+            </label>
+            <div className="relative group">
+              <School className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
+              <input
+                type="text"
+                value={school}
+                onChange={(e) => setSchool(e.target.value)}
+                required
+                placeholder="e.g. University of Mindanao"
+                className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
+              />
+            </div>
+          </div>
+
+          {/* Password Field */}
+          <div className="mb-5.5">
+            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
+              Password
+            </label>
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-600 hover:text-orange-600 transition-colors duration-300"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Confirm Password Field */}
+          <div className="mb-6">
+            <label className="text-slate-700 text-sm font-semibold mb-2.5 block">
+              Confirm Password
+            </label>
+            <div className="relative group">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600 group-focus-within:text-orange-600 transition-colors duration-300" />
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                placeholder="••••••••"
+                className="w-full pl-12 pr-12 py-3.5 rounded-2xl bg-white/60 border border-amber-200/50 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20 focus:bg-white transition-all duration-300"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-amber-600 hover:text-orange-600 transition-colors duration-300"
+              >
+                {showConfirmPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-6 p-3.5 rounded-xl bg-red-50 border border-red-200 animate-in fade-in duration-300">
+              <p className="text-red-700 text-sm font-medium">{error}</p>
+            </div>
+          )}
+
+          {/* Create Account Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-semibold text-base transition-all duration-300 active:scale-95 disabled:opacity-70 shadow-lg shadow-orange-400/20 hover:shadow-orange-400/30 hover:from-amber-400 hover:to-orange-500"
+          >
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                Creating account...
+              </span>
+            ) : (
+              "Create Account"
+            )}
+          </button>
+
+          {/* Divider */}
+          <div className="my-6 relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-amber-200" />
+            </div>
+            <div className="relative flex justify-center text-sm">
+              <span className="px-2 bg-yellow-50/90 text-slate-600">
+                Already registered?
+              </span>
+            </div>
+          </div>
+
+          {/* Login Link */}
+          <Link
+            to="/login"
+            className="w-full py-3.5 rounded-2xl border border-amber-300 text-slate-700 font-semibold text-base transition-all duration-300 hover:bg-amber-50/70 hover:border-orange-300 flex items-center justify-center"
+          >
+            Sign In
           </Link>
+        </div>
+
+        {/* Footer Text */}
+        <p className="text-center text-slate-500 text-xs mt-6">
+          By creating an account, you agree to our Terms of Service
         </p>
       </form>
     </div>
