@@ -2,20 +2,22 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { SearchableSelect } from "../components/SearchableSelect";
-import { getDepartmentOptionsByCourse } from "../data/departments";
+import { COURSES } from "../data/courses";
 
 export function Setup() {
   const { profile, saveProfile, user } = useAuth();
   const navigate = useNavigate();
 
-  const [requiredHours, setRequiredHours] = useState<number>(profile?.requiredHours ?? 480);
+  const initialRequiredHours =
+    profile?.requiredHours && profile.requiredHours > 0
+      ? String(profile.requiredHours)
+      : "480";
+  const [requiredHoursInput, setRequiredHoursInput] = useState<string>(initialRequiredHours);
   const [startDate, setStartDate] = useState(profile?.startDate ?? "");
   const [targetEndDate, setTargetEndDate] = useState(profile?.targetEndDate ?? "");
   const [company, setCompany] = useState(profile?.company ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? "");
-  const [department, setDepartment] = useState(profile?.department ?? "");
-  const course = profile?.course ?? user?.course ?? "";
-  const departmentOptions = getDepartmentOptionsByCourse(course);
+  const [course, setCourse] = useState(profile?.course ?? user?.course ?? "");
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -31,8 +33,9 @@ export function Setup() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const parsedRequiredHours = Number(requiredHoursInput);
     saveProfile({
-      requiredHours: Math.max(1, requiredHours),
+      requiredHours: Math.max(1, Number.isFinite(parsedRequiredHours) ? parsedRequiredHours : 0),
       startDate,
       targetEndDate,
       company,
@@ -40,7 +43,6 @@ export function Setup() {
       phone: profile?.phone ?? "",
       location: profile?.location ?? "",
       course,
-      department,
     });
     navigate("/", { replace: true });
   }
@@ -72,8 +74,8 @@ export function Setup() {
             <input
               type="number"
               min={1}
-              value={requiredHours}
-              onChange={(e) => setRequiredHours(Number(e.target.value))}
+              value={requiredHoursInput}
+              onChange={(e) => setRequiredHoursInput(e.target.value)}
               required
               className="mt-1 w-full rounded-xl border border-amber-200/50 bg-white/60 px-3 py-2.5 text-sm text-slate-900 focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20"
             />
@@ -111,22 +113,12 @@ export function Setup() {
           </div>
 
           <div className="sm:col-span-2">
-            <label className="text-sm font-medium text-slate-700">Course</label>
-            <input
-              type="text"
-              value={course || "Not set"}
-              readOnly
-              className="mt-1 w-full rounded-xl border border-amber-200/50 bg-white/50 px-3 py-2.5 text-sm text-slate-700"
-            />
-          </div>
-
-          <div className="sm:col-span-2">
             <SearchableSelect
-              options={departmentOptions}
-              value={department}
-              onChange={setDepartment}
-              placeholder="Search department..."
-              label="Department"
+              options={COURSES}
+              value={course}
+              onChange={setCourse}
+              placeholder="Search courses..."
+              label="Course"
             />
           </div>
         </div>

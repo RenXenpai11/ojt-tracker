@@ -13,12 +13,12 @@ export function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    const result = login(email, password);
+    const result = await login(email, password);
 
     if (!result.ok) {
       setError(result.error || "Unable to login.");
@@ -26,7 +26,7 @@ export function Login() {
       return;
     }
 
-    navigate("/setup", { replace: true });
+    navigate("/", { replace: true });
   }
 
   return (
@@ -99,6 +99,14 @@ export function Login() {
                   <Eye className="w-5 h-5" />
                 )}
               </button>
+            </div>
+            <div className="mt-2 text-right">
+              <Link
+                to="/forgot-password"
+                className="text-sm font-medium text-slate-600 hover:text-orange-600 transition-colors"
+              >
+                Forgot password?
+              </Link>
             </div>
           </div>
 

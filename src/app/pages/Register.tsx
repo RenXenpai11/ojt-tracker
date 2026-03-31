@@ -18,11 +18,13 @@ export function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setNotice("");
     
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -30,7 +32,13 @@ export function Register() {
     }
 
     setLoading(true);
-    const result = register(name, email, password, school, course);
+    const result = await register(name, email, password, school, course);
+
+    if (result.ok && result.needsEmailVerification) {
+      setNotice("Account created. Please check your email and verify your account, then sign in.");
+      setLoading(false);
+      return;
+    }
     
     if (!result.ok) {
       setError(result.error || "Unable to create account.");
@@ -181,6 +189,13 @@ export function Register() {
               </button>
             </div>
           </div>
+
+          {/* Success Notice */}
+          {notice && (
+            <div className="mb-6 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 animate-in fade-in duration-300">
+              <p className="text-emerald-700 text-sm font-medium">{notice}</p>
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (

@@ -14,8 +14,6 @@ import {
 import { useRef, useState } from "react";
 import { useOJT } from "../context/OJTContext";
 import { useAuth } from "../context/AuthContext";
-import { SearchableSelect } from "../components/SearchableSelect";
-import { getDepartmentOptionsByCourse } from "../data/departments";
 
 const AVATAR_URL =
   "https://images.unsplash.com/photo-1765648636207-22c892e8fae9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjB5b3VuZyUyMHdvbWFuJTIwc3R1ZGVudCUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MzgwNTI5NXww&ixlib=rb-4.1.0&q=80&w=1080";
@@ -40,7 +38,6 @@ export function Profile() {
   const displayPhone = profile?.phone || "Not set";
   const displayLocation = profile?.location || "Not set";
   const displayCourse = profile?.course || "BS Information Technology";
-  const displayDepartment = profile?.department || "Software Development";
   const displayAvatar = profile?.avatarUrl || AVATAR_URL;
   const startDateLabel = profile?.startDate
     ? new Date(profile.startDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
@@ -50,10 +47,8 @@ export function Profile() {
   const [editPhone, setEditPhone] = useState(profile?.phone ?? "");
   const [editLocation, setEditLocation] = useState(profile?.location ?? "");
   const [editCourse, setEditCourse] = useState(profile?.course ?? "");
-  const [editDepartment, setEditDepartment] = useState(profile?.department ?? "");
   const [editStartDate, setEditStartDate] = useState(profile?.startDate ?? "");
   const [editTargetEndDate, setEditTargetEndDate] = useState(profile?.targetEndDate ?? "");
-  const editDepartmentOptions = getDepartmentOptionsByCourse(editCourse);
 
   function buildProfile(overrides?: Partial<typeof profile>): NonNullable<typeof profile> {
     return {
@@ -65,7 +60,6 @@ export function Profile() {
       phone: profile?.phone ?? "",
       location: profile?.location ?? "",
       course: profile?.course ?? "",
-      department: profile?.department ?? "",
       ...overrides,
     };
   }
@@ -75,7 +69,6 @@ export function Profile() {
     setEditPhone(profile?.phone ?? "");
     setEditLocation(profile?.location ?? "");
     setEditCourse(profile?.course ?? "");
-    setEditDepartment(profile?.department ?? "");
     setEditStartDate(profile?.startDate ?? "");
     setEditTargetEndDate(profile?.targetEndDate ?? "");
     setIsEditingProfile(true);
@@ -89,7 +82,6 @@ export function Profile() {
         phone: editPhone,
         location: editLocation,
         course: editCourse,
-        department: editDepartment,
         startDate: editStartDate,
         targetEndDate: editTargetEndDate,
       })
@@ -196,16 +188,6 @@ export function Profile() {
             </div>
 
             <div>
-              <SearchableSelect
-                options={editDepartmentOptions}
-                value={editDepartment}
-                onChange={setEditDepartment}
-                placeholder="Search department..."
-                label="Department"
-              />
-            </div>
-
-            <div>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Start Date</label>
               <input
                 type="date"
@@ -216,7 +198,6 @@ export function Profile() {
             </div>
 
             <div>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Target End Date</label>
               <input
                 type="date"
                 value={editTargetEndDate}
@@ -329,7 +310,6 @@ export function Profile() {
                 { icon: Building2, label: "Company", value: companyName },
                 { icon: GraduationCap, label: "School", value: displaySchool },
                 { icon: BookOpen, label: "Course", value: displayCourse },
-                { icon: Calendar, label: "Department", value: displayDepartment },
                 { icon: Calendar, label: "Start Date", value: startDateLabel },
                 { icon: Calendar, label: "Est. End Date", value: targetEndDateLabel },
               ].map((item) => (

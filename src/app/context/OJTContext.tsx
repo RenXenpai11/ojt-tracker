@@ -27,23 +27,82 @@ export function OJTProvider({ children }: { children: ReactNode }) {
   const { user, profile } = useAuth();
   const requiredHours = profile?.requiredHours ?? TOTAL_REQUIRED_HOURS;
   const storageKey = user ? `ojt_logs_${user.id}` : "ojt_logs";
+  const activeSessionKey = user ? `ojt_active_session_${user.id}` : "ojt_active_session";
 
-  const [logs, setLogs] = useState<LogEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [logs, setLogs] = useState<LogEntry[]>([]);
   const [isClockedIn, setIsClockedIn] = useState(false);
   const [clockInTime, setClockInTime] = useState<string | null>(null);
   const [clockInDate, setClockInDate] = useState<string | null>(null);
   const [todayNote, setTodayNote] = useState("");
 
   useEffect(() => {
+    if (!user) {
+      setLogs([]);
+      setIsClockedIn(false);
+      setClockInTime(null);
+      setClockInDate(null);
+      setTodayNote("");
+      return;
+    }
+
+    try {
+      const savedLogs = localStorage.getItem(storageKey);
+      setLogs(savedLogs ? JSON.parse(savedLogs) : []);
+    } catch {
+      setLogs([]);
+    }
+
+    try {
+      const savedSession = localStorage.getItem(activeSessionKey);
+      if (!savedSession) {
+        setIsClockedIn(false);
+        setClockInTime(null);
+        setClockInDate(null);
+        setTodayNote("");
+        return;
+      }
+
+      const parsed = JSON.parse(savedSession) as {
+        clockInTime: string | null;
+        clockInDate: string | null;
+        todayNote: string;
+      };
+
+      if (parsed.clockInTime && parsed.clockInDate) {
+        setIsClockedIn(true);
+        setClockInTime(parsed.clockInTime);
+        setClockInDate(parsed.clockInDate);
+        setTodayNote(parsed.todayNote ?? "");
+      }
+    } catch {
+      setIsClockedIn(false);
+      setClockInTime(null);
+      setClockInDate(null);
+      setTodayNote("");
+    }
+  }, [user, storageKey, activeSessionKey]);
+
+  useEffect(() => {
+    if (!user) return;
     localStorage.setItem(storageKey, JSON.stringify(logs));
-  }, [logs, storageKey]);
+  }, [user, logs, storageKey]);
+
+  useEffect(() => {
+    if (!user) return;
+    if (!isClockedIn || !clockInTime || !clockInDate) {
+      localStorage.removeItem(activeSessionKey);
+      return;
+    }
+
+    localStorage.setItem(
+      activeSessionKey,
+      JSON.stringify({
+        clockInTime,
+        clockInDate,
+        todayNote,
+      })
+    );
+  }, [user, isClockedIn, clockInTime, clockInDate, todayNote, activeSessionKey]);
 
   const totalHoursCompleted = logs.reduce((sum, log) => sum + (log.totalHours ?? 0), 0);
   const remainingHours = Math.max(0, requiredHours - totalHoursCompleted);

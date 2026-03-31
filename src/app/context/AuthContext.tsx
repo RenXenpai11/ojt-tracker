@@ -1,5 +1,6 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { supabase } from "../../lib/supabase";
 
 type User = {
   id: string;
@@ -7,10 +8,6 @@ type User = {
   email: string;
   school: string;
   course?: string;
-};
-
-type StoredUser = User & {
-  password: string;
 };
 
 type OJTProfile = {
@@ -22,12 +19,12 @@ type OJTProfile = {
   phone?: string;
   location?: string;
   course?: string;
-  department?: string;
 };
 
 type AuthResult = {
   ok: boolean;
   error?: string;
+  needsEmailVerification?: boolean;
 };
 
 interface AuthContextType {
@@ -35,69 +32,183 @@ interface AuthContextType {
   profile: OJTProfile | null;
   isAuthenticated: boolean;
   isSetupComplete: boolean;
-  login: (email: string, password: string) => AuthResult;
-  register: (name: string, email: string, password: string, school: string, course: string) => AuthResult;
+  login: (email: string, password: string) => Promise<AuthResult>;
+  register: (name: string, email: string, password: string, school: string, course: string) => Promise<AuthResult>;
+  requestPasswordReset: (email: string) => Promise<AuthResult>;
+  updatePassword: (newPassword: string) => Promise<AuthResult>;
   logout: () => void;
   saveProfile: (profile: OJTProfile) => void;
 }
 
-const USERS_KEY = "ojt_mock_users";
-const CURRENT_USER_KEY = "ojt_current_user";
-const profileKey = (userId: string) => `ojt_profile_${userId}`;
-const logsKey = (userId: string) => `ojt_logs_${userId}`;
-
 const AuthContext = createContext<AuthContextType | null>(null);
 
-function safeParse<T>(value: string | null, fallback: T): T {
-  if (!value) return fallback;
-  try {
-    return JSON.parse(value) as T;
-  } catch {
-    return fallback;
-  }
+type ProfileRow = {
+  id: string;
+  full_name: string;
+  email: string;
+  school: string;
+  course: string;
+  company: string | null;
+  phone: string | null;
+  location: string | null;
+  required_hours: number | null;
+  start_date: string | null;
+  target_end_date: string | null;
+  avatar_url: string | null;
+};
+
+function mapProfileRowToState(row: ProfileRow): OJTProfile {
+  return {
+    requiredHours: row.required_hours ?? 0,
+    startDate: row.start_date ?? "",
+    targetEndDate: row.target_end_date ?? "",
+    company: row.company ?? "",
+    avatarUrl: row.avatar_url ?? "",
+    phone: row.phone ?? "",
+    location: row.location ?? "",
+    course: row.course ?? "",
+  };
+}
+
+async function fetchProfile(userId: string): Promise<ProfileRow | null> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .single();
+
+  if (error || !data) return null;
+  return data as ProfileRow;
+}
+
+async function ensureProfileFromMetadata(
+  authUser: { id: string; email?: string | null; user_metadata?: Record<string, unknown> }
+): Promise<ProfileRow | null> {
+  const existing = await fetchProfile(authUser.id);
+  if (existing) return existing;
+
+  const metadata = authUser.user_metadata ?? {};
+  const fullName = (metadata.full_name as string | undefined)?.trim() || "Student";
+  const school = (metadata.school as string | undefined)?.trim() || "Not set";
+  const course = (metadata.course as string | undefined)?.trim() || "Not set";
+  const email = (authUser.email ?? "").trim().toLowerCase();
+
+  const { error } = await supabase.from("profiles").upsert(
+    {
+      id: authUser.id,
+      full_name: fullName,
+      email,
+      school,
+      course,
+      company: "",
+      phone: "",
+      location: "",
+      required_hours: 0,
+      start_date: null,
+      target_end_date: null,
+      avatar_url: null,
+    },
+    { onConflict: "id" }
+  );
+
+  if (error) return null;
+  return fetchProfile(authUser.id);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(() =>
-    safeParse<User | null>(localStorage.getItem(CURRENT_USER_KEY), null)
-  );
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfileState] = useState<OJTProfile | null>(null);
 
-  const [profile, setProfileState] = useState<OJTProfile | null>(() => {
-    const current = safeParse<User | null>(localStorage.getItem(CURRENT_USER_KEY), null);
-    if (!current) return null;
-    return safeParse<OJTProfile | null>(localStorage.getItem(profileKey(current.id)), null);
-  });
+  useEffect(() => {
+    let mounted = true;
 
-  const persistedProfile = user
-    ? safeParse<OJTProfile | null>(localStorage.getItem(profileKey(user.id)), null)
-    : null;
-  const effectiveProfile = profile ?? persistedProfile;
-  const isSetupComplete = !!effectiveProfile && effectiveProfile.requiredHours > 0;
+    async function bootstrap() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  function login(email: string, password: string): AuthResult {
-    const users = safeParse<StoredUser[]>(localStorage.getItem(USERS_KEY), []);
-    const found = users.find(
-      (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password
-    );
+      if (!session?.user || !mounted) return;
 
-    if (!found) {
-      return { ok: false, error: "Invalid email or password." };
+      const row = await fetchProfile(session.user.id);
+      if (!row || !mounted) return;
+
+      setUser({
+        id: row.id,
+        name: row.full_name,
+        email: row.email,
+        school: row.school,
+        course: row.course,
+      });
+      setProfileState(mapProfileRowToState(row));
     }
 
-    const nextUser: User = {
-      id: found.id,
-      name: found.name,
-      email: found.email,
-      school: found.school || "Not set",
-      course: found.course || "",
+    void bootstrap();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setUser(null);
+        setProfileState(null);
+        return;
+      }
+
+      void (async () => {
+        const row = await fetchProfile(session.user.id);
+        if (!row || !mounted) return;
+        setUser({
+          id: row.id,
+          name: row.full_name,
+          email: row.email,
+          school: row.school,
+          course: row.course,
+        });
+        setProfileState(mapProfileRowToState(row));
+      })();
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
     };
-    setUser(nextUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
-    setProfileState(safeParse<OJTProfile | null>(localStorage.getItem(profileKey(nextUser.id)), null));
+  }, []);
+
+  const isSetupComplete = !!profile && profile.requiredHours > 0;
+
+  async function login(email: string, password: string): Promise<AuthResult> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error || !data.user) {
+      return { ok: false, error: error?.message || "Invalid email or password." };
+    }
+
+    const row = await ensureProfileFromMetadata(data.user);
+    if (!row) {
+      await supabase.auth.signOut();
+      return { ok: false, error: "Profile not found for this account." };
+    }
+
+    setUser({
+      id: row.id,
+      name: row.full_name,
+      email: row.email,
+      school: row.school,
+      course: row.course,
+    });
+    setProfileState(mapProfileRowToState(row));
     return { ok: true };
   }
 
-  function register(name: string, email: string, password: string, school: string, course: string): AuthResult {
+  async function register(
+    name: string,
+    email: string,
+    password: string,
+    school: string,
+    course: string
+  ): Promise<AuthResult> {
     const trimmedName = name.trim();
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedSchool = school.trim();
@@ -107,68 +218,130 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "Please complete all required fields." };
     }
 
-    const users = safeParse<StoredUser[]>(localStorage.getItem(USERS_KEY), []);
-    const exists = users.some((u) => u.email.toLowerCase() === trimmedEmail);
-    if (exists) {
-      return { ok: false, error: "Email is already registered." };
+    const { data, error } = await supabase.auth.signUp({
+      email: trimmedEmail,
+      password,
+      options: {
+        data: {
+          full_name: trimmedName,
+          school: trimmedSchool,
+          course: trimmedCourse,
+        },
+      },
+    });
+
+    if (error || !data.user) {
+      return { ok: false, error: error?.message || "Unable to create account." };
     }
 
-    const stored: StoredUser = {
-      id: crypto.randomUUID(),
-      name: trimmedName,
-      email: trimmedEmail,
-      school: trimmedSchool,
-      course: trimmedCourse,
-      password,
-    };
+    if (!data.session) {
+      return {
+        ok: true,
+        needsEmailVerification: true,
+      };
+    }
 
-    users.push(stored);
-    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    const { error: profileError } = await supabase.from("profiles").upsert(
+      {
+        id: data.user.id,
+        full_name: trimmedName,
+        email: trimmedEmail,
+        school: trimmedSchool,
+        course: trimmedCourse,
+        company: "",
+        phone: "",
+        location: "",
+        required_hours: 0,
+        start_date: null,
+        target_end_date: null,
+        avatar_url: null,
+      },
+      { onConflict: "id" }
+    );
 
-    const nextUser: User = {
-      id: stored.id,
-      name: stored.name,
-      email: stored.email,
-      school: stored.school,
-      course: stored.course,
-    };
-    setUser(nextUser);
-    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(nextUser));
-    localStorage.setItem(logsKey(nextUser.id), JSON.stringify([]));
-    const initialProfile: OJTProfile = {
-      requiredHours: 0,
-      startDate: "",
-      targetEndDate: "",
-      company: "",
-      phone: "",
-      location: "",
-      course: trimmedCourse,
-      department: "",
-    };
-    localStorage.setItem(profileKey(nextUser.id), JSON.stringify(initialProfile));
-    setProfileState(initialProfile);
+    if (profileError) {
+      return { ok: false, error: "Account created, but profile initialization failed." };
+    }
+
+    const row = await fetchProfile(data.user.id);
+    if (!row) {
+      return { ok: false, error: "Account created, but profile was not found." };
+    }
+
+    setUser({
+      id: row.id,
+      name: row.full_name,
+      email: row.email,
+      school: row.school,
+      course: row.course,
+    });
+    setProfileState(mapProfileRowToState(row));
+    return { ok: true };
+  }
+
+  async function requestPasswordReset(email: string): Promise<AuthResult> {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
+      return { ok: false, error: "Please enter your email." };
+    }
+
+    const redirectTo = `${window.location.origin}/reset-password`;
+    const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
+
+    if (error) {
+      return { ok: false, error: error.message || "Unable to send reset email." };
+    }
+
+    return { ok: true };
+  }
+
+  async function updatePassword(newPassword: string): Promise<AuthResult> {
+    if (!newPassword.trim()) {
+      return { ok: false, error: "Please enter a new password." };
+    }
+
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      return { ok: false, error: error.message || "Unable to update password." };
+    }
+
     return { ok: true };
   }
 
   function logout() {
+    void supabase.auth.signOut();
     setUser(null);
     setProfileState(null);
-    localStorage.removeItem(CURRENT_USER_KEY);
   }
 
   function saveProfile(next: OJTProfile) {
     if (!user) return;
-    localStorage.setItem(profileKey(user.id), JSON.stringify(next));
     setProfileState(next);
+    void supabase.from("profiles").update({
+      full_name: user.name,
+      email: user.email,
+      school: user.school,
+      course: next.course ?? user.course ?? "",
+      company: next.company ?? "",
+      phone: next.phone ?? "",
+      location: next.location ?? "",
+      required_hours: Math.max(0, next.requiredHours),
+      start_date: next.startDate || null,
+      target_end_date: next.targetEndDate || null,
+      avatar_url: next.avatarUrl || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", user.id);
   }
 
   const value: AuthContextType = {
     user,
-    profile: effectiveProfile,
+    profile,
     isAuthenticated: !!user,
     isSetupComplete,
     login,
     register,
+    requestPasswordReset,
+    updatePassword,
     logout,
     saveProfile,
   };

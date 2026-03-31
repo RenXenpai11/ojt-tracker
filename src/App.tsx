@@ -8,6 +8,8 @@ import { Profile } from "./app/pages/Profile";
 import { Welcome } from "./app/pages/Welcome";
 import { Login } from "./app/pages/Login";
 import { Register } from "./app/pages/Register";
+import { ForgotPassword } from "./app/pages/ForgotPassword";
+import { ResetPassword } from "./app/pages/ResetPassword";
 import { Setup } from "./app/pages/Setup";
 import Layout from "./app/components/Layout";
 
@@ -30,6 +32,8 @@ function AppRoutes() {
         <Route path="/welcome" element={<PublicOnlyRoute><Welcome /></PublicOnlyRoute>} />
         <Route path="/login" element={<PublicOnlyRoute><Login /></PublicOnlyRoute>} />
         <Route path="/register" element={<PublicOnlyRoute><Register /></PublicOnlyRoute>} />
+        <Route path="/forgot-password" element={<PublicOnlyRoute><ForgotPassword /></PublicOnlyRoute>} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route path="/setup" element={<RequireAuth><Setup /></RequireAuth>} />
 
