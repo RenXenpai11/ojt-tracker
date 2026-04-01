@@ -329,7 +329,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       start_date: next.startDate || null,
       target_end_date: next.targetEndDate || null,
       avatar_url: next.avatarUrl || null,
-      updated_at: new Date().toISOString(),
     }).eq("id", user.id);
   }
 
