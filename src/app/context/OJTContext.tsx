@@ -3,6 +3,56 @@ import type { ReactNode } from "react";
 import type { LogEntry } from "../store/ojt-store";
 import { calcHours, formatTime, formatDate, TOTAL_REQUIRED_HOURS } from "../store/ojt-store";
 import { useAuth } from "./AuthContext";
+import { supabase } from "../../lib/supabase";
+
+type OJTLogRow = {
+  id: string;
+  user_id: string;
+  log_date: string;
+  time_in: string;
+  time_out: string | null;
+  rendered_hours: number | null;
+  note: string | null;
+  status: string | null;
+};
+
+function formatDateDisplay(dateValue: string): string {
+  const date = new Date(`${dateValue}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function normalizeDateForDb(dateValue: string): string {
+  if (!dateValue) return new Date().toISOString().slice(0, 10);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) {
+    return dateValue;
+  }
+
+  const parsed = new Date(dateValue);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  return new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+function mapRowToLogEntry(row: OJTLogRow): LogEntry {
+  return {
+    id: row.id,
+    date: formatDateDisplay(row.log_date),
+    timeIn: row.time_in,
+    timeOut: row.time_out,
+    totalHours: row.rendered_hours,
+    notes: row.note ?? "",
+  };
+}
 
 interface OJTContextType {
   logs: LogEntry[];
@@ -45,12 +95,22 @@ export function OJTProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    try {
-      const savedLogs = localStorage.getItem(storageKey);
-      setLogs(savedLogs ? JSON.parse(savedLogs) : []);
-    } catch {
-      setLogs([]);
-    }
+    void (async () => {
+      const { data, error } = await supabase
+        .from("ojt_logs")
+        .select("id,user_id,log_date,time_in,time_out,rendered_hours,note,status")
+        .eq("user_id", user.id)
+        .order("log_date", { ascending: false })
+        .order("time_in", { ascending: false });
+
+      if (error || !data) {
+        setLogs([]);
+        return;
+      }
+
+      const mappedLogs = (data as OJTLogRow[]).map(mapRowToLogEntry);
+      setLogs(mappedLogs);
+    })();
 
     try {
       const savedSession = localStorage.getItem(activeSessionKey);
@@ -124,15 +184,43 @@ export function OJTProvider({ children }: { children: ReactNode }) {
     const now = new Date();
     const timeOut = formatTime(now);
     const hours = calcHours(clockInTime, timeOut);
+
+    const logDate = normalizeDateForDb(clockInDate);
     const newLog: LogEntry = {
-      id: Date.now().toString(),
-      date: clockInDate,
+      id: crypto.randomUUID(),
+      date: formatDateDisplay(logDate),
       timeIn: clockInTime,
       timeOut,
       totalHours: hours,
       notes: todayNote,
     };
-    setLogs((prev) => [newLog, ...prev]);
+
+    if (user) {
+      void (async () => {
+        const { data, error } = await supabase
+          .from("ojt_logs")
+          .insert({
+            user_id: user.id,
+            log_date: logDate,
+            time_in: clockInTime,
+            time_out: timeOut,
+            rendered_hours: hours,
+            note: todayNote || "",
+            status: "completed",
+          })
+          .select("id,user_id,log_date,time_in,time_out,rendered_hours,note,status")
+          .single();
+
+        if (error || !data) {
+          return;
+        }
+
+        setLogs((prev) => [mapRowToLogEntry(data as OJTLogRow), ...prev]);
+      })();
+    } else {
+      setLogs((prev) => [newLog, ...prev]);
+    }
+
     setIsClockedIn(false);
     setClockInTime(null);
     setClockInDate(null);
@@ -140,11 +228,50 @@ export function OJTProvider({ children }: { children: ReactNode }) {
   }
 
   function addLog(log: LogEntry) {
-    setLogs((prev) => [log, ...prev]);
+    if (!user) {
+      setLogs((prev) => [log, ...prev]);
+      return;
+    }
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from("ojt_logs")
+        .insert({
+          user_id: user.id,
+          log_date: normalizeDateForDb(log.date),
+          time_in: log.timeIn,
+          time_out: log.timeOut,
+          rendered_hours: log.totalHours,
+          note: log.notes || "",
+          status: "completed",
+        })
+        .select("id,user_id,log_date,time_in,time_out,rendered_hours,note,status")
+        .single();
+
+      if (error || !data) {
+        return;
+      }
+
+      setLogs((prev) => [mapRowToLogEntry(data as OJTLogRow), ...prev]);
+    })();
   }
 
   function deleteLog(id: string) {
-    setLogs((prev) => prev.filter((l) => l.id !== id));
+    if (!user) {
+      setLogs((prev) => prev.filter((l) => l.id !== id));
+      return;
+    }
+
+    void (async () => {
+      const { error } = await supabase
+        .from("ojt_logs")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
+
+      if (error) return;
+      setLogs((prev) => prev.filter((l) => l.id !== id));
+    })();
   }
 
   return (
