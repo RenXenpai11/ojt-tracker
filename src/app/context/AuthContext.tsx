@@ -37,7 +37,7 @@ interface AuthContextType {
   requestPasswordReset: (email: string) => Promise<AuthResult>;
   updatePassword: (newPassword: string) => Promise<AuthResult>;
   logout: () => void;
-  saveProfile: (profile: OJTProfile) => void;
+  saveProfile: (profile: OJTProfile) => Promise<AuthResult>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -314,10 +314,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfileState(null);
   }
 
-  function saveProfile(next: OJTProfile) {
-    if (!user) return;
-    setProfileState(next);
-    void supabase.from("profiles").update({
+  async function saveProfile(next: OJTProfile): Promise<AuthResult> {
+    if (!user) {
+      return { ok: false, error: "You must be logged in to save your profile." };
+    }
+
+    const { data, error } = await supabase.from("profiles").update({
       full_name: user.name,
       email: user.email,
       school: user.school,
@@ -329,7 +331,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       start_date: next.startDate || null,
       target_end_date: next.targetEndDate || null,
       avatar_url: next.avatarUrl || null,
-    }).eq("id", user.id);
+    }).eq("id", user.id).select("*").single();
+
+    if (error || !data) {
+      return { ok: false, error: error?.message || "Failed to save profile." };
+    }
+
+    const row = data as ProfileRow;
+    setUser((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        name: row.full_name,
+        email: row.email,
+        school: row.school,
+        course: row.course,
+      };
+    });
+    setProfileState(mapProfileRowToState(row));
+    return { ok: true };
   }
 
   const value: AuthContextType = {

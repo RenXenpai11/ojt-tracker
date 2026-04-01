@@ -74,9 +74,9 @@ export function Profile() {
     setIsEditingProfile(true);
   }
 
-  function handleSaveProfile(e: React.FormEvent) {
+  async function handleSaveProfile(e: React.FormEvent) {
     e.preventDefault();
-    saveProfile(
+    await saveProfile(
       buildProfile({
         company: editCompany,
         phone: editPhone,
@@ -95,7 +95,7 @@ export function Profile() {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== "string") return;
-      saveProfile({
+      void saveProfile({
         requiredHours,
         startDate: profile?.startDate ?? "",
         targetEndDate: profile?.targetEndDate ?? "",

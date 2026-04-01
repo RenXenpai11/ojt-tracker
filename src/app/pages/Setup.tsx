@@ -18,6 +18,8 @@ export function Setup() {
   const [company, setCompany] = useState(profile?.company ?? "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatarUrl ?? "");
   const [course, setCourse] = useState(profile?.course ?? user?.course ?? "");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -31,10 +33,12 @@ export function Setup() {
     reader.readAsDataURL(file);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    setSaving(true);
     const parsedRequiredHours = Number(requiredHoursInput);
-    saveProfile({
+    const result = await saveProfile({
       requiredHours: Math.max(1, Number.isFinite(parsedRequiredHours) ? parsedRequiredHours : 0),
       startDate,
       targetEndDate,
@@ -44,6 +48,13 @@ export function Setup() {
       location: profile?.location ?? "",
       course,
     });
+
+    setSaving(false);
+    if (!result.ok) {
+      setError(result.error || "Unable to save setup details.");
+      return;
+    }
+
     navigate("/", { replace: true });
   }
 
@@ -125,10 +136,13 @@ export function Setup() {
 
         <button
           type="submit"
+          disabled={saving}
           className="mt-6 w-full rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white py-2.5 font-semibold transition-all duration-300 hover:from-amber-400 hover:to-orange-500"
         >
-          Save and Continue
+          {saving ? "Saving..." : "Save and Continue"}
         </button>
+
+        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
       </form>
     </div>
   );
