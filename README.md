@@ -135,5 +135,4 @@ Before deploying, add these environment variables in your hosting provider setti
 
 ## Notes
 
-- This repository currently has no license file.
-- If you plan to open source it, add a LICENSE and update this README accordingly.
+- This project is licensed under the MIT License. See the LICENSE file for details.
